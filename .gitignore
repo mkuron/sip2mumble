@@ -1,0 +1,14 @@
+.DS_Store
+*.pyc
+*.so
+*.o
+
+# Extracted tarballs
+pycelt/celt_0_11/celt-0.11.1/
+pycelt/celt_0_7/celt-0.7.1/
+pyopus/copus/opus-1.1/
+
+# Cython files
+pycelt/celt_0_11/celt_0_11.c
+pycelt/celt_0_7/celt_0_7.c
+pyopus/copus/copus.c
