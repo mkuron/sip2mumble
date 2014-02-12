@@ -20,7 +20,7 @@ import pymumble.pycelt.celt_0_11 as celt
 import pymumble.pyopus.copus as opus
 from pymumble.constants import *
 
-class EchoSource(Source):
+class MumbleSource(Source):
 	Mumble = None
 	_buffer = ''
 	_delay = 0.0
@@ -61,7 +61,7 @@ class EchoSource(Source):
 		print user['name'], soundchunk.sequence # TODO: we need to mix the sound from multiple users together
 		self._buffer += soundchunk.pcm[::3] # TODO: we need to get bytes XX____ instead of bytes X__X__!
 
-class EchoApp(VoiceApp):
+class MumbleApp(VoiceApp):
 	
 	Mumble = None
 
@@ -87,10 +87,10 @@ class EchoApp(VoiceApp):
 		self.Mumble.set_receive_sound(True)
 		
 		leg.answerCall(self)
-		return ( (CallAnsweredEvent, self.beginEcho), )
+		return ( (CallAnsweredEvent, self.beginAudio), )
 
-	def beginEcho(self, event):
-		e = EchoSource(self.Mumble)
+	def beginAudio(self, event):
+		e = MumbleSource(self.Mumble)
 		self.Mumble.callbacks.set_callback(PYMUMBLE_CLBK_SOUNDRECEIVED, e.mumble_sound_received)
 		self.mediaPlay([e,])
 		self.mediaRecord(e)
@@ -106,14 +106,14 @@ class EchoApp(VoiceApp):
 		
 		self.returnResult('other end closed')
 
-class EchoApplication(DougApplication):
+class MumbleApplication(DougApplication):
 	configFileName = None
 
 def main():
 	global app
 	from twisted.internet import reactor
 
-	app = EchoApplication(EchoApp)
+	app = MumbleApplication(MumbleApp)
 	app._NATMapping = False
 	app.boot()
 	app.start()
