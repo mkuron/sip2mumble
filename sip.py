@@ -21,9 +21,12 @@ import pymumble.pyopus.copus as opus
 from pymumble.constants import *
 
 class EchoSource(Source):
-	def __init__(self, delay=0.0):
-		self._buffer = ''
-		self._delay = delay
+	Mumble = None
+	_buffer = ''
+	_delay = 0.0
+	
+	def __init__(self, mumble):
+		self.Mumble = mumble
 
 	def isPlaying(self):
 		return True
@@ -36,6 +39,9 @@ class EchoSource(Source):
 		return
 
 	def read(self):
+		"""
+		Which audio to send to SIP
+		"""
 		# 2 bytes per sample, 8000 samples per second
 		if len(self._buffer) >= 320+(self._delay * 16000.0):
 			r, self._buffer = self._buffer[:320], self._buffer[320:]
@@ -44,7 +50,16 @@ class EchoSource(Source):
 			return ''
 
 	def write(self, bytes):
+		"""
+		Received audio from SIP
+		"""
+		return
 		self._buffer += bytes
+	
+	def mumble_sound_received(self, user, soundchunk):
+		user.sound.get_sound() # remove the sound chunk from the buffer
+		print user['name'], soundchunk.sequence # TODO: we need to mix the sound from multiple users together
+		self._buffer += soundchunk.pcm[::3] # TODO: we need to get bytes XX____ instead of bytes X__X__!
 
 class EchoApp(VoiceApp):
 	
@@ -75,14 +90,15 @@ class EchoApp(VoiceApp):
 		return ( (CallAnsweredEvent, self.beginEcho), )
 
 	def beginEcho(self, event):
-		from shtoom.doug.source import EchoSource
-		e = EchoSource(delay=0.0)
+		e = EchoSource(self.Mumble)
+		self.Mumble.callbacks.set_callback(PYMUMBLE_CLBK_SOUNDRECEIVED, e.mumble_sound_received)
 		self.mediaPlay([e,])
 		self.mediaRecord(e)
 		return ( (CallEndedEvent, self.allDone), )
 
 	def allDone(self, event):
 		# Disconnect from Mumble server
+		self.Mumble.set_receive_sound(False)
 		self.Mumble.reconnect = False
 		self.Mumble.connected = PYMUMBLE_CONN_STATE_NOT_CONNECTED
 		time.sleep(0.01)
