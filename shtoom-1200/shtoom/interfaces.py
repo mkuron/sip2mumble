@@ -1,6 +1,6 @@
 # Copyright (C) 2004 Anthony Baxter
 
-from twisted.python.components import Interface
+from zope.interface import Interface
 
 
 class UI(Interface):
