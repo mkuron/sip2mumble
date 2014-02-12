@@ -23,7 +23,6 @@ from pymumble.constants import *
 class MumbleSource(Source):
 	Mumble = None
 	_buffer = ''
-	_delay = 0.0
 	
 	def __init__(self, mumble):
 		self.Mumble = mumble
@@ -43,7 +42,7 @@ class MumbleSource(Source):
 		Which audio to send to SIP
 		"""
 		# 2 bytes per sample, 8000 samples per second
-		if len(self._buffer) >= 320+(self._delay * 16000.0):
+		if len(self._buffer) >= 320:
 			r, self._buffer = self._buffer[:320], self._buffer[320:]
 			return r
 		else:
@@ -53,13 +52,20 @@ class MumbleSource(Source):
 		"""
 		Received audio from SIP
 		"""
-		return
-		self._buffer += bytes
+		sound = ''
+		i = 0
+		while i < len(bytes): # upsample the bitrate 1:6 without interpolation for now
+			sound += bytes[i:i+2]*6
+			i+= 2
+		self.Mumble.sound_output.add_sound(sound)
 	
 	def mumble_sound_received(self, user, soundchunk):
 		user.sound.get_sound() # remove the sound chunk from the buffer
 		print user['name'], soundchunk.sequence # TODO: we need to mix the sound from multiple users together
-		self._buffer += soundchunk.pcm[::3] # TODO: we need to get bytes XX____ instead of bytes X__X__!
+		i = 0
+		while i < len(soundchunk.pcm): # downsample the bitrate 6:1 (i.e. 48000:8000) at 16 bit sampling depth
+			self._buffer += soundchunk.pcm[i:i+2] # get one sample (16 bit)
+			i += 10 # skip five samples (16 bit each)
 
 class MumbleApp(VoiceApp):
 	
