@@ -3,6 +3,12 @@ import os
 import glob
 import time
 
+# the host name of the Mumble server
+hostname = 'localhost'
+
+# an array of which phones to ring
+phones = ['sip:02493571@127.0.0.1:52389']
+
 modpath = glob.glob(os.path.join(os.path.dirname(__file__), 'shtoom*'))
 sys.path.append(sorted(modpath)[-1])
 #modpath = glob.glob(os.path.join(os.path.dirname(__file__), 'shtoom*/scripts'))
@@ -86,8 +92,8 @@ class MumbleApp(VoiceApp):
 		print "voiceapp.__start__ to user %s from user %s"%(username, caller)
 		
 		# Connect to Mumble server
-		self.Mumble = pymumble.Mumble('localhost', 64738, caller, '', reconnect=True)
-		self.Mumble.set_application_string(sys.argv[0])
+		self.Mumble = pymumble.Mumble(hostname, 64738, caller, '', reconnect=True)
+		self.Mumble.set_application_string('sip2mumble')
 		self.Mumble.start()
 		self.Mumble.is_ready()
 		self.Mumble.set_receive_sound(True)
@@ -115,7 +121,19 @@ class MumbleApp(VoiceApp):
 class MumbleApplication(DougApplication):
 	configFileName = None
 
+def msg_received(message):
+	print message
+	# TODO: how do we make an outgoing call?
+	# scripts/testcall.py makes outgoing calls
+
 def main():
+	# register with Mumble server so we can get text messages
+	masterMumble = pymumble.Mumble(hostname, 64738, 'sip2mumble', '', reconnect=True)
+	masterMumble.set_application_string('sip2mumble registrar')
+	masterMumble.start()
+	masterMumble.is_ready()
+	masterMumble.callbacks.set_callback(PYMUMBLE_CLBK_TEXTMESSAGERECEIVED, msg_received)
+	
 	global app
 	from twisted.internet import reactor
 
