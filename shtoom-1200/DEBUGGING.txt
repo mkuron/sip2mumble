@@ -1,0 +1,182 @@
+Reporting a bug
+---------------
+
+If you're reporting a bug in shtoom, please make sure you run 
+the script 'scripts/shtoominfo.py' and include this in your 
+bug report (feel free to hide the IP addresses if you'd prefer).
+
+Debugging
+---------
+
+Some notes on helping you debug shtoom. There's a bit more 
+attitude in this file than you might think necessary. I 
+apologise - many of these problems are a source of some 
+frustration and annoyance to me, so this venting is probably
+healthy for me <wink>
+
+Testing
+-------
+
+Some test addresses to try calling:
+
+  sip:613@fwd.pulver.com -- An echo test
+
+  sip:echotest@divmod.org:5085 -- Another echo test
+  
+See also the section later titled "Test Harness"
+
+
+Firewalls
+---------
+
+Firewalls are the absolute BANE of VoIP and SIP. If the firewall is well
+designed and modern, it should work just fine. If not... well, we'll
+come to some possible solutions to that.
+
+You should run the script 'shtoominfo.py' (in the scripts directory).
+This will report the particular sort of NAT you're using. In particular,
+note that any firewall that's a Symmetric NAT without UPnP support will
+require you to use an outbound proxy for things to work. A UDP Blocked
+NAT means that you're probably not going to be able to make any calls at
+all.
+
+If your firewall is, for instance, a linux box, and you feel comfortable
+enough with it, you can force a NAT solution with the option
+'force_rtp_port' to force shtoom to use a particular RTP port, then
+manually set your firewall to forward this port back to your machine.
+This is kind of hacky, but works.
+
+If you're looking at a firewall, the thing you are looking for is
+"stateful UDP filtering". That is, if a UDP packet goes out, it lets
+the reply back in. There's a bunch of firewalls that will do this, but
+_only_ for DNS packets. Wonderful. Shtoom should detect what sort of
+firewall you are using.
+
+Shtoom also works with UPnP gateways (such as Microsoft's Internet
+Connection Sharing, and many off-the-shelf firewall appliances.) It
+works fine with the boxes I've tested against, but I only have access
+to a limited number of these. If you are having difficulties, send 
+me debugging (including a packet trace of shtoom communications
+with the firewall). If this is all a bit beyond you, and you really
+want it fixed, arrange for me to get access to one of the firewalls in
+question-- either a login on a box behind the firewall, or else talk to
+me about sending me one of the devices in question.
+
+Sound
+-----
+
+The next big issue with shtoom is getting audio to work. There's a
+simple script 'shreadder.py' that uses the shtoom audio layer to
+test with. It reads from the audio device and writes audio back to
+it, spitting out some numbers about the power level of the audio.
+Use this to test your audio setup. Note that under ALSA on Linux,
+all audio devices start muted. Use alsamixer to unmute them. (Yes,
+this is stupid, no, I don't know why they made that choice).
+
+The shtoominfo.py script, mentioned already, should dump out which
+audio interfaces are available.
+
+Notes on sound drivers under Linux
+----------------------------------
+
+ALSA is preferred in all cases. It Just Works. Sound drivers before 
+ALSA on Linux are somewhere between a shambles and a bloody shambles.
+
+There are some sound drivers that are just screwed. Non ALSA drivers 
+having problems:
+
+  i810_audio
+  trident
+  <insert your dodgy sound driver here>
+
+If you have one of these, you're boned. Install ALSA. If you 
+can't/won't upgrade to a Linux 2.6 kernel, find a version of 
+ALSA for your system.
+
+For Redhat/Fedora users, look at the Planet CCRMA project, 
+http://www-ccrma.stanford.edu/
+It provides packaged versions of ALSA and the like.
+
+Debian users should look for the alsa-base package. I've been advised
+that "dpkg-reconfigure alsa-base" will allow you to set it up and 
+select your sound card (for instance).
+
+For others, go to http://www.alsa-project.org/
+
+Yes, in theory it _should_ be possible to make your existing sound
+driver work. But I'm not willing to spend the time to do so -- there's
+far more useful things I can be working on. If you want to try and
+figure out your sound driver, and contribute fixes or documentation
+on how to make it work, please, do so! I will happily include the
+documentation here, and credit you for it. Previously, shtoom failed
+on systems where the device could only be opened in stereo(!?). There's
+now code in shtoom.audio.ossaudio to deal with these broken drivers.
+This happens even with some ALSA drivers!
+
+
+Determining your sound driver
+-----------------------------
+
+On Linux, you can use this command:
+
+  /sbin/lsmod | grep soundcore
+
+For ALSA, it will produce something like 
+
+soundcore              10720  1 snd
+
+The 'snd' is the base ALSA module. For non-ALSA, you'll get 
+something like
+
+soundcore              10720  1 i810_audio
+
+Sound drivers under Windows
+---------------------------
+
+Under Windows, we use the PortAudio package. By default, this 
+uses the default windows sound device. You can alter this through
+the control panel. There's also some environment variables you can
+set to choose a different device:
+
+  XXX TODO.
+
+
+Echo Problems
+-------------
+
+If you're having a shocking echo problem under ALSA, check you've 
+not got 'Capture' enabled for something you shouldn't have. The 
+only thing that should have 'Capture' on in alsamixer is 'Mic'. 
+
+Hit 'space' to toggle the 'Capture' flag. See the alsamixer manpage for
+more. There's now an ALSA mixer interface, and shtoom will warn and fix
+the ALSA mixer setting soon. See also:
+http://people.redhat.com/~alexl/files/why-alsa-sucks.png
+
+
+Unsorted Notes
+--------------
+
+exarkun reports, on selecting the correct sound driver under ALSA:
+my card is "ALi Corporation M5451".  w/ oss, it was using the trident 
+driver.  There is also an alsa driver for trident cards, but it does 
+not work.  The "ALi M5451" alsa driver does, though. 
+
+
+Test Harness
+------------
+
+The script 'shtoom/test/harness.py' is a test harness for running
+the phone. It will bring up the phone, and accepts all the normal
+arguments and options - calling anything will connect to a special
+network layer that echoes back audio. In addition, every 5 seconds it
+checks for a file called 'call.txt' in the current directory, and checks
+it's modification time. If there's no call running, it simulates an
+incoming call. If there's a call, it simulates the remote end hanging
+up. Example::
+
+   % PYTHONPATH=`pwd` python shtoom/test/harness.py --ui qt  &
+   % touch call.txt   # a new incoming call
+   % touch call.txt   # hang it up.
+
+

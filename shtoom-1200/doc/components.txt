@@ -1,0 +1,59 @@
+
+Shtoom Component Architecture
+-----------------------------
+
+
+Currently, there's a whole pile of objects that can be connected together
+to make a working application. The code to do this is embedded all through
+the application, and is, to be honest, a pain in the clacker. It gets worse
+as more and more objects become available.
+
+If instead we have a component architecture, we can do things much more sanely.
+So, for instance, we'd register an IPreferencesStorage object that knows how to
+save and restore preferences. We can then slot in a replacement and have it
+Just Work. 
+
+Already, we have the following objects that are suitable for this sort of
+registration:
+
+    PreferencesStorage! Application* SIP* RTP? AudioCodec* UserInterface* 
+    AddressBook! NATMapper* AudioDevice* CredentialsStore! AudioPlayout* 
+    * == more than one, already
+    ! == will be more than one
+    ? == might be more than one
+
+    PreferencesStorage -- multiple ways to store prefs
+    Application -- s.app.phone, s.app.doug
+    SIP -- real one, test harness one
+    RTP -- e.g. RTP, SRTP
+    AudioCodec -- ulaw, alaw, gsm, speex
+    AudioDevice -- lots
+    AudioPlayout -- Several already implemented
+    UserInterface -- lots
+    AddressBook -- LDAP, Outlook, KDE, GNOME, ...
+    NATMapper -- STUN, UPnP, TURN?
+    CredentialsStore -- Add a more secure store 
+
+
+Rough API:
+
+    from shtoom.components import getThingy, getAllThingys, registerThingy
+
+    registerThingy(IPreferenceSaver, ShtoomRCSaver('.shtoomrc'))
+
+    ...
+
+    saver = getThingy(IPreferencesSaver)
+    saver.updatePreferences(...)
+
+See also: PEP 246
+
+
+# class Codecable(Faceted):
+#    def registerCodec(self, new):
+#        current = IAudioCodecs(self, ())
+#        self[IAudioCodecs] = current + (new, )
+#c = Codecable()
+#c.registerCodec(1)
+#c.registerCodec(2)
+#IAudioCodecs(c)

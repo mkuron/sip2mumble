@@ -1,0 +1,96 @@
+
+Bug:
+
+testdoug on the Mac generates static. Probably a byte ordering issue
+
+Bug:
+
+audio device goes mental - yay! At random moments, the audio device 
+devolves to static. Happens with alsa and oss. The problem is with 
+audio _sending_, particularly under load.
+
+
+Bug:
+
+When the audio device is busy (something else has it open), bad things happen:
+
+2004/09/26 17:53 EST [shtoom.sip.SipPhone (UDP)] startCall reopening None
+<MediaLayer wrapped around <shtoom.audio.ossaudio.OSSAudioDevice object at
+0xf69948ac>>
+
+2004/09/26 17:53 EST [shtoom.sip.SipPhone (UDP)] Traceback (most recent call
+last):
+          File
+"/usr/local/lib/python2.3/site-packages/twisted/python/context.py", line 43,
+in callWithContext
+            return func(*args,**kw)
+          File
+"/usr/local/lib/python2.3/site-packages/twisted/internet/default.py", line
+535, in _doReadOrWrite
+            why = getattr(selectable, method)()
+          File
+"/usr/local/lib/python2.3/site-packages/twisted/internet/udp.py", line 114, in
+doRead
+            self.protocol.datagramReceived(data, addr)
+          File "/home/anthony/projects/shtoom/svntrunk/shtoom/sip.py", line
+1081, in datagramReceived
+            mp.dataReceived(datagram)
+        --- <exception caught here> ---
+          File
+"/usr/local/lib/python2.3/site-packages/twisted/protocols/sip.py", line 554,
+in dataReceived
+            basic.LineReceiver.dataReceived(self, data)
+          File
+"/usr/local/lib/python2.3/site-packages/twisted/protocols/basic.py", line 233,
+in dataReceived
+            return self.rawDataReceived(data)
+          File
+"/usr/local/lib/python2.3/site-packages/twisted/protocols/sip.py", line 641,
+in rawDataReceived
+            self.messageDone()
+          File
+"/usr/local/lib/python2.3/site-packages/twisted/protocols/sip.py", line 621,
+in messageDone
+            self.messageReceived(self.message)
+          File "/home/anthony/projects/shtoom/svntrunk/shtoom/sip.py", line
+1143, in sipMessageReceived
+            call.recvResponse(message)
+          File "/home/anthony/projects/shtoom/svntrunk/shtoom/sip.py", line
+742, in recvResponse
+            self.sendAck(message, startRTP=1)
+          File "/home/anthony/projects/shtoom/svntrunk/shtoom/sip.py", line
+573, in sendAck
+            self.sip.app.startCall(self.cookie, oksdp, cb)
+          File "/home/anthony/projects/shtoom/svntrunk/shtoom/app/phone.py",
+line 146, in startCall
+            self._audio.reopen()
+          File
+"/home/anthony/projects/shtoom/svntrunk/shtoom/audio/converters.py", line 222,
+in reopen
+            NullConv.reopen(self)
+          File
+"/home/anthony/projects/shtoom/svntrunk/shtoom/audio/converters.py", line 36,
+in reopen
+            return self._d.reopen()
+          File
+"/home/anthony/projects/shtoom/svntrunk/shtoom/audio/baseaudio.py", line 15,
+in reopen
+            self.openDev()
+          File
+"/home/anthony/projects/shtoom/svntrunk/shtoom/audio/ossaudio.py", line 10, in
+openDev
+            dev = ossaudiodev.open('rw')
+        exceptions.IOError: [Errno 16] Device or resource busy: '/dev/dsp'
+        
+
+name: dropcall in state 'SENT_RINGING' not handled
+to reproduce: Make a call. Wait until in state 180: Ringing. On the other end, reject the call.
+details:
+[02:51] 	<fezzae>	2004/11/10 02:51 PST [-] dropcall in state 'SENT_RINGING'
+[02:52] 	<fezzae>	but the other side still says 180: Ringing
+[02:58] 	<fezzae>	the 'SENT_RINGING' state isn't handled
+[02:58] 	*	fezzae adds it to the 'SENT_INVITE' tuple and sees
+[02:58] 	<`anthony>	not sure whether you're meant to send back a BYE or a CANCEL in that state.
+[03:00] 	<fezzae>	ah.
+
+

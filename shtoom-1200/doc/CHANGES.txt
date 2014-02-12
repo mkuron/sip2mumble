@@ -1,0 +1,158 @@
+Major changes in the shtoom suite. In reverse chronological order.
+
+0.3:
+  - gnome ui now has an icon in the notification area (system tray) in
+    the panel. Closing the main window simply hides it to the systray. 
+    systray icon has a right-click context menu.
+  - gnome, tk and text UIs now optionally support dbus for IPC. New 
+    scripts/shtoomclient uses dbus to talk to a running shtoom.
+  - register refresh got a healthy dose of sanity added.
+  - the playing of ringing sounds when making or receiving a call works
+    much more sanely now.
+  - new network option 'nat' - can be set to both, upnp, stun or none.
+  - new scripts/upnpclient.py - a small command line client for adding,
+    removing and listing UPnP mappings.
+  - Gnome, Tk, and Qt UIs have a decent authentication dialog, hooked up
+    to the credentials cache.
+  - Text UI gets new 'auth' command to add auth credentials
+  - New code for saving credentials - death to register_auth* options!
+  - Conferencing code has had a fair bit of TLC.
+  - New shtoom.schema module added as base class for Options code, with 
+    far saner API.
+  - doug statemachine change: a state can return a deferred. Events
+    during this deferred are queued up to be triggered after the deferred
+    is finished.
+  - refactoring the call setup code to suck much less
+  - Universal Plug n Play support. This works with Microsoft Internet
+    Connection Sharing and many off-the-shelf firewalls.
+  - Much better STUN support.
+  - Handle Record-Route in a simplistic way.
+  - address book support (CW)
+  - textui's logging is saner - shtoomphone got a --logfile option
+  - another playout algorithm, with a better buffering strategy (CW)
+  - native ALSA support (Casper Wilstrup)
+  - doug's connectLegs() primitive now works, and connects an 
+    inbound and an outbound leg together.
+  - doug has had most of the voiceapp body moved out to the Leg 
+    object, where it belongs. 
+  - scripts/shreadder.py now takes an optional codec argument, e.g.
+    PT_GSM, PT_SPEEX. The audio will be roundtripped through that 
+    codec. Good for testing.
+  - Support for the speex codec added. This requires an optional 
+    install - David McNab's pySpeex package.
+  - Audio interfaces have been refactored to be a little more sane.
+  - A simple playout buffer has been created. This should hopefully
+    help with the creeping delay problem.
+  - massive changes to RTP and SDP handling, to fix a lot of the ugliness
+    under the hood. Amongst other things, we now handle dynamic payload 
+    types correctly. Plus, we can do more intelligent things with the RTP
+    we receive. Finally, it sucks much, much less.
+  - even under ALSA, some audio devices used by ossaudiodev can only do
+    stereo. Handle these broken/idiotic/annoying drivers.
+  - -p0 means 'listen on any random port', not 'default port'. Useful for
+    clients where you don't care about the port (for instance, if you're
+    running many many clients from the command line)
+  - shtam, shecho and shmessage have been rewritten as doug applications. 
+    shtam now sends the voicemail as an email when it's collected. The old
+    shtoom.app.* modules have been removed from the codebase.
+  - OSX audio hooked up, using audio code from Donovan Preston.
+  - the main phone application is now called shtoomphone. Too many import
+    horrors with 'import shtoom' getting the script, rather than the 
+    package in site-packages.
+  - A simple tftp client is checked in
+  - Scripts now live in the 'scripts' directory
+  - The Gtk UI now has an debug log. You can hide and reveal it by clicking on
+    the '+' button.
+  - The Gtk UI now has a preferences dialog.
+  - A conference server is in. There's a script 'shtoomcu' that will run 
+    it. More work to be done, including enter/leave sounds and the like.
+  - There's a new test harness for testing the phone's inbound and
+    outbound call. See DEBUGGING.txt for more.
+  - There's now some rough code in doug for detecting inband DTMF
+    (aka the little beepy noises). Thank you _very_ much cisco for
+    not generating oob dtmf events.
+  - doug can detect DTMF, play, record, and make outbound calls
+  - wx UI is now in a separate thread to the twisted event loop
+  - Large amounts of refactoring to call control to make it unit testable.
+  - Doug: Call setup in doug is now a two-stage process - a CallStarted
+    event is triggered first, the application then calls 'answerCall' or
+    'rejectCall' on the leg in the event. A CallAnswered event then follows
+    when the call is setup.
+  - After prodding from Jamey Hicks, I've reworked the handling of
+    the from: and to: lines in SIP, so that we can keep a dialog 
+    up correctly. This has been extended so that BYE also works. We
+    can now handle calls both to and from a cisco running IOS 12.3, from
+    setup through to teardown.
+  - Outbound proxy support is done (thanks to Jamey Hicks)
+  - RTCP decoding is done. RTCP encoding is mostly done. As yet, nothing
+    uses the decoded packets or generates RTCP packets, but it's nice to 
+    see what you're being sent.
+    Firewall issues mean that it's unlikely that two-way RTCP comms will
+    work.
+  - doug is alive. 
+  - DTMF sending is hooked up, and works in the tk, qt and gnome UIs
+    DTMF sending works when talking to Doug and also talking to ciscos.
+    Right now, though, there's a hardcoded assumption that it's RTP PT 101.
+    This will be fixed before 0.3
+  - A major refactoring of SIP internals and the handling of local and
+    remote addresses mean it should be a bit saner and easier to 
+    understand.
+  - A wxWidgets UI was checked in. Thanks to Andy Hird for writing this.
+  - The fastaudio driver, used on windows, received some TLC and should
+    work on a lot more systems.
+  - The return of RTP's ConnectedDatagramProtocol, after it was removed 
+    from the 0.2 release. This means that if a remote machine abruptly 
+    "goes away", we don't keep spamming them with RTP packets for the
+    rest of time.
+  - A major refactoring of the use of deferreds mean that things actually
+    work a lot more sanely. I'm chaining deferreds and using them to
+    return data in a more orderly fashion. 
+
+0.2: 
+  - RTP now uses a ConnectedDatagramProtocol. This allows for the
+    detection of the other end going away abruptly. Still needs more
+    testing for random weirdness. This change was backed out for 0.2,
+    but will be in 0.3.
+  - GSM codec works. (Needs optional pygsm package installed).
+  - gnome UI cleanup, tk UI cleanup
+  - New 'Register' button to register (after you edit registration 
+    settings).
+  - You can hang up a call that's in progress or failed
+  - Additional (non-phone) applications available - shmessage, shtam
+  - Tk interface more featureful - has most of the same stuff as the
+    Qt interface.
+  - DTMF detection in the non-phone apps. They don't do anything with
+    it yet, but the hooks are there.
+  - Works against XTen now. Slight mistake in RTP headers. Oh well.
+  - Auth against old/broken servers that send challenges without a qop 
+    header (for instance, Asterisk) works.
+  - Can now prompt for user and password when needed (Tk only, for now)
+  - Options now supports short options
+  - suppress the config file being used with --no-config-file
+  - Config file (.shtoomrc) added. This will save off any command
+    line arguments that are supplied, as well as any set via the
+    preferences dialog.
+  - Preferences dialog added (to Tk and Qt only, so far)
+  - Many bugfixes to the SIP handling code. Placing and receiving
+    calls via a proxy now works.
+  - Digest Auth support is done. This authenticates both INVITE 
+    and REGISTRATIONs. At the moment the auth has to be supplied
+    via a preference - this will be fixed, soon.
+  - SIP REGISTRATION is done - this allows you to register with a 
+    SIP Proxy (for instance, divmod.com)
+  - The 'guts' of Shtoom are now in shtoom.app - the new Application
+    object controls most of the behaviour of the phone. It creates 
+    SIP, RTP and UI objects and handles the communication between them.
+  - Major refactoring of the UI selection code
+  - UPnP discovery is working, but not hooked up (not much point until
+    the UPnP-using code is done).
+  
+
+0.1: RELEASED 2004-01-11. 
+  - Initial basic calling UI done, for Tk, Gnome, Qt/KDE and command 
+    line
+  - Audio using either ossaudiodev or portaudio/fastaudio
+  - Can make and receive calls
+  - Supports firewall traversal via STUN
+  - Uses either PCMU (8KHz ULAW, default) or GSM 06.10 (if optional
+    pygsm module is installed).
