@@ -31,6 +31,9 @@ from pymumble.constants import *
 class MumbleSource(Source):
 	Mumble = None
 	_buffer_from_mumble = defaultdict(str)
+	_buffer_to_mumble = ''
+	downsampling_ratio = 6
+	chunksize = 320
 	
 	def __init__(self, mumble):
 		self.Mumble = mumble
@@ -47,13 +50,14 @@ class MumbleSource(Source):
 
 	def read(self):
 		"""
-		Which audio to send to SIP. 2 bytes per sample, 8000 samples per second. Sent in 20ms chunks.
+		Which audio to send to SIP. 2 bytes per sample, 8000 samples per second.
+		Sent in 20ms chunks.
 		"""
 		total = ''
-		for user in self._buffer_from_mumble:
-			if len(self._buffer_from_mumble[user]) >= 320:
-				print '%d bytes in buffer for %s' % (len(self._buffer_from_mumble[user]), user)
-				r, self._buffer_from_mumble[user] = self._buffer_from_mumble[user][:320], self._buffer_from_mumble[user][320:]
+		for user in self._buffer_from_mumble.keys():
+			if len(self._buffer_from_mumble[user]) >= self.chunksize:
+				print '%d bytes in buffer from %s' % (len(self._buffer_from_mumble[user]), user)
+				r, self._buffer_from_mumble[user] = self._buffer_from_mumble[user][:self.chunksize], self._buffer_from_mumble[user][self.chunksize:]
 				if len(total) == 0:
 					total = r
 				else:
@@ -64,21 +68,33 @@ class MumbleSource(Source):
 	def write(self, bytes):
 		"""
 		Received audio from SIP. 2 bytes per sample, 8000 samples per second.
+		The Opus codec needs chunks sized in multiples of 20 ms.
 		"""
+		self._buffer_to_mumble += bytes
+		if len(self._buffer_to_mumble) <= self.chunksize:
+			# we do less-than-or-equal because we need one sample from the next chunk to do proper interpolation
+			return
+		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize+1], self._buffer_to_mumble[self.chunksize:]
+		print '%d bytes in buffer from %s' % (len(self._buffer_to_mumble), 'SIP')
+		
 		sound = ''
 		i = 0
-		while i < len(bytes): # upsample the bitrate 1:6 without interpolation for now
-			sound += bytes[i:i+2]*6
+		while i < self.chunksize: # upsample the bitrate 1:6 without interpolation for now
+			sound += r[i:i+2]*self.downsampling_ratio
 			i+= 2
 		self.Mumble.sound_output.add_sound(sound)
 	
 	def mumble_sound_received(self, user, soundchunk):
+		"""
+		Received audio from Mumble. 2 bytes per sample, 48000 samples per second.
+		Usually received in 20ms or 40ms chunks.
+		"""
 		user.sound.get_sound() # remove the sound chunk from the buffer
-		print user['name'], soundchunk.sequence
+		print user['name'], soundchunk.sequence, len(soundchunk.pcm)
 		i = 0
 		while i < len(soundchunk.pcm): # downsample the bitrate 6:1 (i.e. 48000:8000) at 16 bit sampling depth
 			self._buffer_from_mumble[user['name']] += soundchunk.pcm[i:i+2] # get one sample (16 bit)
-			i += 10 # skip five samples (16 bit each)
+			i += (self.downsampling_ratio-1)*2 # skip five samples (16 bit each)
 
 class MumbleApp(VoiceApp):
 	
