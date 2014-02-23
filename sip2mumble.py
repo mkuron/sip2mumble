@@ -33,6 +33,7 @@ class MumbleSource(Source):
 	_buffer_from_mumble = defaultdict(str)
 	_buffer_to_mumble = ''
 	downsampling_ratio = 6
+	sample_depth = 2
 	chunksize = 320
 	
 	def __init__(self, mumble):
@@ -62,7 +63,7 @@ class MumbleSource(Source):
 					total = r
 				else:
 					# Mix sound from multiple Mumble users together
-					total = audioop.add(total, r, 2)
+					total = audioop.add(total, r, self.sample_depth)
 		return total
 	
 	def write(self, bytes):
@@ -74,14 +75,14 @@ class MumbleSource(Source):
 		if len(self._buffer_to_mumble) <= self.chunksize:
 			# we do less-than-or-equal because we need one sample from the next chunk to do proper interpolation
 			return
-		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize+1], self._buffer_to_mumble[self.chunksize:]
+		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize+self.sample_depth], self._buffer_to_mumble[self.chunksize:]
 		print '%d bytes in buffer from %s' % (len(self._buffer_to_mumble), 'SIP')
 		
 		sound = ''
 		i = 0
 		while i < self.chunksize: # upsample the bitrate 1:6 without interpolation for now
-			sound += r[i:i+2]*self.downsampling_ratio
-			i+= 2
+			sound += r[i:i+self.sample_depth]*self.downsampling_ratio
+			i+= self.sample_depth
 		self.Mumble.sound_output.add_sound(sound)
 	
 	def mumble_sound_received(self, user, soundchunk):
@@ -93,8 +94,8 @@ class MumbleSource(Source):
 		print user['name'], soundchunk.sequence, len(soundchunk.pcm)
 		i = 0
 		while i < len(soundchunk.pcm): # downsample the bitrate 6:1 (i.e. 48000:8000) at 16 bit sampling depth
-			self._buffer_from_mumble[user['name']] += soundchunk.pcm[i:i+2] # get one sample (16 bit)
-			i += (self.downsampling_ratio-1)*2 # skip five samples (16 bit each)
+			self._buffer_from_mumble[user['name']] += soundchunk.pcm[i:i+self.sample_depth] # get one sample (16 bit)
+			i += self.downsampling_ratio*self.sample_depth # skip five samples (16 bit each)
 
 class MumbleApp(VoiceApp):
 	
