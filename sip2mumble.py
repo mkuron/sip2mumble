@@ -2,6 +2,8 @@ import sys
 import os
 import glob
 import time
+from collections import defaultdict
+import audioop
 
 # the host name of the Mumble server
 hostname = 'localhost'
@@ -28,7 +30,7 @@ from pymumble.constants import *
 
 class MumbleSource(Source):
 	Mumble = None
-	_buffer = ''
+	_buffer_from_mumble = defaultdict(str)
 	
 	def __init__(self, mumble):
 		self.Mumble = mumble
@@ -40,23 +42,28 @@ class MumbleSource(Source):
 		return True
 
 	def close(self):
-		self._buffer = ''
+		self._buffer_from_mumble = defaultdict(str)
 		return
 
 	def read(self):
 		"""
-		Which audio to send to SIP
+		Which audio to send to SIP. 2 bytes per sample, 8000 samples per second. Sent in 20ms chunks.
 		"""
-		# 2 bytes per sample, 8000 samples per second
-		if len(self._buffer) >= 320:
-			r, self._buffer = self._buffer[:320], self._buffer[320:]
-			return r
-		else:
-			return ''
-
+		total = ''
+		for user in self._buffer_from_mumble:
+			if len(self._buffer_from_mumble[user]) >= 320:
+				print '%d bytes in buffer for %s' % (len(self._buffer_from_mumble[user]), user)
+				r, self._buffer_from_mumble[user] = self._buffer_from_mumble[user][:320], self._buffer_from_mumble[user][320:]
+				if len(total) == 0:
+					total = r
+				else:
+					# Mix sound from multiple Mumble users together
+					total = audioop.add(total, r, 2)
+		return total
+	
 	def write(self, bytes):
 		"""
-		Received audio from SIP
+		Received audio from SIP. 2 bytes per sample, 8000 samples per second.
 		"""
 		sound = ''
 		i = 0
@@ -67,10 +74,10 @@ class MumbleSource(Source):
 	
 	def mumble_sound_received(self, user, soundchunk):
 		user.sound.get_sound() # remove the sound chunk from the buffer
-		print user['name'], soundchunk.sequence # TODO: we need to mix the sound from multiple users together
+		print user['name'], soundchunk.sequence
 		i = 0
 		while i < len(soundchunk.pcm): # downsample the bitrate 6:1 (i.e. 48000:8000) at 16 bit sampling depth
-			self._buffer += soundchunk.pcm[i:i+2] # get one sample (16 bit)
+			self._buffer_from_mumble[user['name']] += soundchunk.pcm[i:i+2] # get one sample (16 bit)
 			i += 10 # skip five samples (16 bit each)
 
 class MumbleApp(VoiceApp):
