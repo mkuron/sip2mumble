@@ -77,21 +77,19 @@ class MumbleSource(Source):
 		print rmin,rmax
 		if rmax-rmin > self.silenceThreshold:
 			self._buffer_to_mumble += bytes
-		elif len(self._buffer_to_mumble) <= self.chunksize:
+		elif len(self._buffer_to_mumble) < self.chunksize:
 			# only one fragment left and no more coming, so discard the buffer
 			print 'Dropping SIP receive buffer'
 			self._buffer_to_mumble, self._stateUp = '', None
 		
 		#print '%d bytes in buffer from %s' % (len(self._buffer_to_mumble), 'SIP')
-		if len(self._buffer_to_mumble) <= self.chunksize:
-			# we do less-than-or-equal because we need one sample from the next chunk to do proper interpolation
+		if len(self._buffer_to_mumble) < self.chunksize:
 			return
-		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize+self.sample_depth], self._buffer_to_mumble[self.chunksize:] # include one sample from the next chunk, but don't pop it off the buffer
+		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize], self._buffer_to_mumble[self.chunksize:]
 		
 		# upsample the bitrate 1:6 (i.e. 8000:48000) at 16 bit sampling depth
 		# TODO: what does the state even do? I'm guessing it contains the last sample, which would explain why the first call results in a shorter fragment than all the others
 		sound, self._stateUp = audioop.ratecv(r, self.sample_depth, 1, 48000/self.downsampling_ratio, 48000, self._stateUp)
-		sound = sound[:-1*self.sample_depth*self.downsampling_ratio] # remove the last six samples, corresponding to the one additional sample we included above
 		if len(sound) != self.chunksize*self.downsampling_ratio:
 			raise Exception('Upsampling %d samples 6:1 yielded %d samples.' % (self.chunksize, len(sound)))
 		self.Mumble.sound_output.add_sound(sound)
