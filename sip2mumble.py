@@ -66,25 +66,27 @@ class MumbleSource(Source):
 					total = audioop.add(total, r, self.sample_depth)
 		return total
 	
+	_stateUp = None
 	def write(self, bytes):
 		"""
 		Received audio from SIP. 2 bytes per sample, 8000 samples per second.
 		The Opus codec needs chunks sized in multiples of 20 ms.
 		"""
 		self._buffer_to_mumble += bytes
+		print '%d bytes in buffer from %s' % (len(self._buffer_to_mumble), 'SIP')
 		if len(self._buffer_to_mumble) <= self.chunksize:
 			# we do less-than-or-equal because we need one sample from the next chunk to do proper interpolation
 			return
-		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize+self.sample_depth], self._buffer_to_mumble[self.chunksize:]
-		print '%d bytes in buffer from %s' % (len(self._buffer_to_mumble), 'SIP')
+		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize+self.sample_depth], self._buffer_to_mumble[self.chunksize:] # include one sample from the next chunk, but don't pop it off the buffer
 		
-		sound = ''
-		i = 0
-		while i < self.chunksize: # upsample the bitrate 1:6 without interpolation for now
-			sound += r[i:i+self.sample_depth]*self.downsampling_ratio
-			i+= self.sample_depth
+		# upsample the bitrate 1:6 (i.e. 8000:48000) at 16 bit sampling depth
+		sound, self._stateUp = audioop.ratecv(r, self.sample_depth, 1, 48000/self.downsampling_ratio, 48000, self._stateUp)
+		sound = sound[:-1*self.sample_depth*self.downsampling_ratio] # remove the last six samples, corresponding to the one additional sample we included above
+		if len(sound) != self.chunksize*self.downsampling_ratio:
+			raise Exception('Upsampling %d samples 6:1 yielded %d samples.' % (self.chunksize, len(sound)))
 		self.Mumble.sound_output.add_sound(sound)
 	
+	_stateDown = None
 	def mumble_sound_received(self, user, soundchunk):
 		"""
 		Received audio from Mumble. 2 bytes per sample, 48000 samples per second.
@@ -92,10 +94,12 @@ class MumbleSource(Source):
 		"""
 		user.sound.get_sound() # remove the sound chunk from the buffer
 		print user['name'], soundchunk.sequence, len(soundchunk.pcm)
-		i = 0
-		while i < len(soundchunk.pcm): # downsample the bitrate 6:1 (i.e. 48000:8000) at 16 bit sampling depth
-			self._buffer_from_mumble[user['name']] += soundchunk.pcm[i:i+self.sample_depth] # get one sample (16 bit)
-			i += self.downsampling_ratio*self.sample_depth # skip five samples (16 bit each)
+		
+		# downsample the bitrate 6:1 (i.e. 48000:8000) at 16 bit sampling depth
+		sound, self._stateDown = audioop.ratecv(soundchunk.pcm, self.sample_depth, 1, 48000, 48000/self.downsampling_ratio, self._stateDown)
+		if len(sound) % self.chunksize != 0:
+			raise Exception('Downsampling %d samples 6:1 yielded %d samples.' % (len(soundchunk.pcm), len(sound)))
+		self._buffer_from_mumble[user['name']] += sound
 
 class MumbleApp(VoiceApp):
 	
