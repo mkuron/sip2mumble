@@ -34,8 +34,6 @@ class MumbleSource(Source):
 	sample_depth = 2
 	chunksize = 320
 	
-	# TODO: DTMF tones cause disconnect
-	
 	def __init__(self, mumble):
 		self.Mumble = mumble
 
@@ -150,6 +148,11 @@ class MumbleApp(VoiceApp):
 		self.Mumble.control_socket.close()
 		
 		self.returnResult('other end closed')
+	
+	def _inboundDTMFKeyPress(self, dtmf):
+		print "Received DTMF %s" % dtmf
+		# ignore any key presses
+		return
 
 class MumbleApplication(DougApplication):
 	configFileName = None
