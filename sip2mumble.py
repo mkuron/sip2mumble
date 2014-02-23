@@ -13,8 +13,6 @@ phones = ['sip:02493571@127.0.0.1:52389']
 
 modpath = glob.glob(os.path.join(os.path.dirname(__file__), 'shtoom*'))
 sys.path.append(sorted(modpath)[-1])
-#modpath = glob.glob(os.path.join(os.path.dirname(__file__), 'shtoom*/scripts'))
-#sys.path.append(sorted(modpath)[-1])
 
 # Shtoom imports
 from shtoom.doug.source import Source
@@ -35,6 +33,8 @@ class MumbleSource(Source):
 	downsampling_ratio = 6
 	sample_depth = 2
 	chunksize = 320
+	
+	# TODO: DTMF tones cause disconnect
 	
 	def __init__(self, mumble):
 		self.Mumble = mumble
@@ -57,7 +57,7 @@ class MumbleSource(Source):
 		total = ''
 		for user in self._buffer_from_mumble.keys():
 			if len(self._buffer_from_mumble[user]) >= self.chunksize:
-				print '%d bytes in buffer from %s' % (len(self._buffer_from_mumble[user]), user)
+				#print '%d bytes in buffer from %s' % (len(self._buffer_from_mumble[user]), user)
 				r, self._buffer_from_mumble[user] = self._buffer_from_mumble[user][:self.chunksize], self._buffer_from_mumble[user][self.chunksize:]
 				if len(total) == 0:
 					total = r
@@ -73,11 +73,16 @@ class MumbleSource(Source):
 		The Opus codec needs chunks sized in multiples of 20 ms.
 		"""
 		self._buffer_to_mumble += bytes
-		print '%d bytes in buffer from %s' % (len(self._buffer_to_mumble), 'SIP')
+		#print '%d bytes in buffer from %s' % (len(self._buffer_to_mumble), 'SIP')
 		if len(self._buffer_to_mumble) <= self.chunksize:
 			# we do less-than-or-equal because we need one sample from the next chunk to do proper interpolation
 			return
 		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize+self.sample_depth], self._buffer_to_mumble[self.chunksize:] # include one sample from the next chunk, but don't pop it off the buffer
+		
+		# Silence detection
+		rmin,rmax = audioop.minmax(r, self.sample_depth)
+		if rmax-rmin < 32:
+			return
 		
 		# upsample the bitrate 1:6 (i.e. 8000:48000) at 16 bit sampling depth
 		sound, self._stateUp = audioop.ratecv(r, self.sample_depth, 1, 48000/self.downsampling_ratio, 48000, self._stateUp)
@@ -93,7 +98,7 @@ class MumbleSource(Source):
 		Usually received in 20ms or 40ms chunks.
 		"""
 		user.sound.get_sound() # remove the sound chunk from the buffer
-		print user['name'], soundchunk.sequence, len(soundchunk.pcm)
+		#print user['name'], soundchunk.sequence, len(soundchunk.pcm)
 		
 		# downsample the bitrate 6:1 (i.e. 48000:8000) at 16 bit sampling depth
 		sound, self._stateDown = audioop.ratecv(soundchunk.pcm, self.sample_depth, 1, 48000, 48000/self.downsampling_ratio, self._stateDown)
