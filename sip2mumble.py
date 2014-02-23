@@ -22,6 +22,7 @@ from shtoom.doug.events import *
 
 # Mumble imports
 import pymumble
+import pymumble.mumble_pb2 as mumble_pb2
 import pymumble.pycelt.celt_0_11 as celt
 import pymumble.pyopus.copus as opus
 from pymumble.constants import *
@@ -149,13 +150,24 @@ class MumbleApp(VoiceApp):
 		
 		self.returnResult('other end closed')
 	
+	_dtmf_received = ''
 	def _inboundDTMFKeyPress(self, dtmf):
-		print "Received DTMF %s" % dtmf
-		# ignore any key presses
+		if dtmf in ('#', '*'):
+			send_msg(self._dtmf_received, self.Mumble)
+			self._dtmf_received = ''
+		else:
+			self._dtmf_received += dtmf
 		return
 
 class MumbleApplication(DougApplication):
 	configFileName = None
+
+def send_msg(message, Mumble, channel='Root'):
+	mess = mumble_pb2.TextMessage()
+	mess.message = message
+	mess.session.append(Mumble.users.myself_session)
+	mess.channel_id.append(Mumble.channels.find_by_name(channel)['channel_id'])
+	Mumble.send_message(PYMUMBLE_MSG_TYPES_TEXTMESSAGE, mess)
 
 def msg_received(message):
 	print message
