@@ -87,8 +87,11 @@ class MumbleSource(Source):
 			return
 		r, self._buffer_to_mumble = self._buffer_to_mumble[:self.chunksize], self._buffer_to_mumble[self.chunksize:]
 		
+		# Initialize upsampler with a silent sample
+		if self._stateUp is None:
+			_, self._stateUp = audioop.ratecv(audioop.mul('xx',self.sample_depth,0), self.sample_depth, 1, 48000/self.downsampling_ratio, 48000, self._stateUp)
+		
 		# upsample the bitrate 1:6 (i.e. 8000:48000) at 16 bit sampling depth
-		# TODO: what does the state even do? I'm guessing it contains the last sample, which would explain why the first call results in a shorter fragment than all the others
 		sound, self._stateUp = audioop.ratecv(r, self.sample_depth, 1, 48000/self.downsampling_ratio, 48000, self._stateUp)
 		if len(sound) != self.chunksize*self.downsampling_ratio:
 			raise Exception('Upsampling %d samples 6:1 yielded %d samples.' % (self.chunksize, len(sound)))
